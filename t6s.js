@@ -50,8 +50,36 @@ return network.registerProtocol('t6s', {
 		o.datatype = 'ip6addr("nomask")';
 		o.load = function(section_id) {
 			return network.getWAN6Networks().then(L.bind(function(nets) {
-					if (Array.isArray(nets) && nets.length)
-							this.placeholder = nets[0].getIP6Addr();
+					if (Array.isArray(nets) && nets.length) {
+						let addr = nets[0].getIP6Addr();
+
+						if (addr) {
+							let ip_only = addr.split('/')[0];
+
+							if (!ip_only.endsWith('::feed')) {
+								try {
+									let expanded = (function(ip) {
+										let tmp = document.createElement('a');
+										tmp.href = 'http://[' + ip + ']';
+										return tmp.hostname || tmp.host || '';
+									})(ip_only);
+
+									// Remove [ and ] if present
+									expanded = expanded.replace(/^\[|\]$/g, '');
+
+									let parts = expanded.split(':');
+									while (parts.length < 8) parts.push('0');
+
+									let prefix64 = parts.slice(0, 4).join(':');
+									this.placeholder = prefix64 + '::feed';
+								} catch (e) {
+									this.placeholder = ip_only;
+								}
+							} else {
+								this.placeholder = ip_only;
+							}
+						}
+					}
 					return form.Value.prototype.load.apply(this, [section_id]);
 			}, this));
 		};

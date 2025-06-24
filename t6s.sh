@@ -31,6 +31,44 @@ dbg_print_args(){
 	done
 }
 
+expand_ipv6() {
+    ip6addr="$1"
+
+    echo "$ip6addr" | awk '
+    BEGIN {
+        split("", parts)
+    }
+
+    {
+        # Replace "::" with unique marker ":_:"
+        gsub("::", ":_:")
+
+        # Split into fields
+        n = split($0, a, ":")
+
+        for (i = 1; i <= n; i++) {
+            if (a[i] == "_") {
+                # Calculate how many "0" blocks are missing
+                missing = 8 - (n - 1)
+                for (j = 1; j <= missing; j++) parts[length(parts)+1] = "0"
+            } else {
+                if (a[i] == "") {
+                    parts[length(parts)+1] = "0"
+                } else {
+                    parts[length(parts)+1] = a[i]
+                }
+            }
+        }
+
+        # Print full 8-field address without zero-padding
+        for (i = 1; i <= 8; i++) {
+            printf "%s", parts[i]
+            if (i < 8) printf ":"
+        }
+        print ""
+    }'
+}
+
 proto_t6s_setup() {
 	# DEBUG
 	echo "Entering proto_t6s_setup()"
@@ -80,6 +118,21 @@ proto_t6s_setup() {
 				proto_notify_error "$cfg" "NO_WAN_LINK"
 				return
 			fi
+		fi
+
+		# Get real interface name
+		network_get_device real_dev "${wanif}"
+		wanif="$real_dev"
+
+		echo "Current ip6addr on ${wanif}: $ip6addr"
+		# Check if the address ends with ::feed
+		if echo "$ip6addr" | grep -q "::feed$"; then
+			ip6addr="${ip6addr}"
+		else
+			# Extract the /64 prefix (first 4 fields) and append ::feed
+			prefix=$(expand_ipv6 "$ip6addr" | cut -d':' -f1-4)
+			ip6addr="${prefix}::feed"
+			echo "Tunnel local ip6addr: ${ip6addr}"
 		fi
 	}
 
