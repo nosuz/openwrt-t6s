@@ -19,8 +19,13 @@ Dependencies below are as same as ds-lite package which you may need too.
 Copy the files in repository following the guide below:
 
 - `t6s.sh -> /lib/netifd/proto/`
-    - needs execute permission
+  - needs execute permission
 - `t6s.js -> /www/luci-static/resources/protocol/`
+
+Optional: Copy the following file to restart the t6s interface upon IPv6 prefix changes.
+
+- `50-t6s -> /etc/odhcp6c.user.d/`
+  - needs execute permission
 
 ### Restart the device
 
@@ -47,8 +52,13 @@ OpenWrtで[Transix IPv4接続(固定IP)](https://www.mfeed.ad.jp/transix/statici
 リポジトリ内のファイルを下記の通りルータに転送してください。
 
 - `t6s.sh -> /lib/netifd/proto/`
-    - 実行権限が必要です
+  - 実行権限が必要です
 - `t6s.js -> /www/luci-static/resources/protocol/`
+
+任意：IPv6 addressの更新でt6sインターフェイスを再起動するには、下記のファイルもルータに転送してください。
+
+- `50-t6s -> /etc/odhcp6c.user.d/`
+  - 実行権限が必要です
 
 ### ルータをリブートする
 

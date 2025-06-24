@@ -1,0 +1,48 @@
+#!/bin/sh
+
+logger -t odhcp6c "==== DHCPv6 Event: $2 on $1 ===="
+
+PREFIX_FILE="/tmp/last_ipv6_prefix"
+
+if [ "$2" = "ra-updated" ]; then
+    # Extract the first delegated prefix
+    CURRENT_PREFIX=$(echo "$PREFIXES" | cut -d' ' -f1 | cut -d',' -f1)
+    BASE_PREFIX=$(echo "$CURRENT_PREFIX" | cut -d'/' -f1)
+
+    if [ -z "$BASE_PREFIX" ]; then
+        logger -t odhcp6c "No prefix found; aborting"
+        exit 1
+    fi
+
+    logger -t odhcp6c "Current IPv6 prefix: $BASE_PREFIX"
+
+    # Compare with the previously recorded prefix
+    if [ -f "$PREFIX_FILE" ]; then
+        LAST_PREFIX=$(cat "$PREFIX_FILE")
+    else
+        LAST_PREFIX=""
+    fi
+
+    if [ "$LAST_PREFIX" != "$BASE_PREFIX" ]; then
+        logger -t odhcp6c "Prefix changed from '$LAST_PREFIX' to '$BASE_PREFIX'"
+
+        # Save the new prefix
+        echo "$BASE_PREFIX" > "$PREFIX_FILE"
+
+        # Extract all interfaces starting with t6s- from ip a
+        for dev in $(ip -o link show | awk -F': ' '{print $2}' | grep '^t6s-' | cut -d@ -f1 | sed 's/^t6s-//'); do
+            # logger -t odhcp6c "Restarting interface for device: $dev"
+
+            # Match device name to a UCI-defined logical interface
+            for uci_iface in $(uci show network | grep "=interface" | cut -d. -f2 | cut -d= -f1); do
+                if [ "$uci_iface" = "$dev" ]; then
+                    logger -t odhcp6c "Restart interface: $uci_iface"
+                    ifdown "$uci_iface"
+                    ifup "$uci_iface"
+                fi
+            done
+        done
+    else
+        logger -t odhcp6c "Prefix unchanged"
+    fi
+fi
